@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Callable
+
 
 def include(lines: List[str], line_index: int) -> int:
     pass
@@ -31,13 +32,47 @@ def error(lines: List[str], line_index: int) -> int:
 directive_prefix = "@"
 
 handlers = {
-    f"{directive_prefix}include": include,
-    f"{directive_prefix}invisible": invisible,
-    f"{directive_prefix}mirror": mirror,
-    f"{directive_prefix}repeat": repeat,
-    f"{directive_prefix}random": random,
-    f"{directive_prefix}debug": debug,
-    f"{directive_prefix}info": info,
-    f"{directive_prefix}warning": warning,
-    f"{directive_prefix}error": error,
+    f"{directive_prefix}include"    : include,
+    f"{directive_prefix}invisible"  : invisible,
+    f"{directive_prefix}mirror"     : mirror,
+    f"{directive_prefix}repeat"     : repeat,
+    f"{directive_prefix}random"     : random,
+    f"{directive_prefix}debug"      : debug,
+    f"{directive_prefix}info"       : info,
+    f"{directive_prefix}warning"    : warning,
+    f"{directive_prefix}error"      : error,
 }
+
+
+def register_handler(
+        directive: str,
+        handler: Callable[[list[str], int], int],
+        *,
+        overwrite: bool=False
+) -> None:
+    global handlers
+
+    if not directive.startswith(directive_prefix):
+        directive = directive_prefix + directive
+
+    if directive in handlers:
+        print(f"Directive '{directive}' already registered")
+        if overwrite:
+            print(f"Directive '{directive}' overwritten.")
+        else:
+            print(f"Directive '{directive}' already registered. Skipping.")
+            return
+
+    handlers[directive] = handler
+
+
+def unregister_handler(directive: str) -> None:
+    global handlers
+
+    if not directive.startswith(directive_prefix):
+        directive = directive_prefix + directive
+
+    if directive in handlers:
+        raise ValueError(f"Directive '{directive}' isn't registered")
+
+    handlers.pop(directive)
