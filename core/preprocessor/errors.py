@@ -77,3 +77,14 @@ class UndefinedVariableError(MyError):
                 return error_string
         else:
             return self.message
+
+
+"""
+Base Warning type for Python+ compiler
+"""
+
+class MyWarning(Warning):
+    pass
+
+class RedefinitionWarning(MyWarning):
+    pass

@@ -1,7 +1,7 @@
 class CommentTable:
 
     class Comment:
-        def __init__(self, pos: (int, int)=(0,0), raw: str = r""):
+        def __init__(self, pos: tuple[int, int]=(0,0), raw: str = r""):
             self.pos = pos      # tuple (line, column)
             self.raw = raw      # comment's text
 
@@ -11,9 +11,16 @@ class CommentTable:
     def __init__(self):
         self.comments = []
 
-    def add(self, pos: (int, int), raw: str):
+    def add(self, pos: tuple[int, int], raw: str):
         comment = self.Comment(pos, raw)
         self.comments.append(comment)
+
+    @staticmethod
+    def set_place_holder(source: list[str],
+                         line: int,
+                         comment_num: int):
+        holder = f"__COMMENT__{comment_num}"
+        source[line] += f"    #{holder}"
 
     def __len__(self):
         return len(self.comments)

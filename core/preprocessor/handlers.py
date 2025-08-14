@@ -1,9 +1,6 @@
 from typing import List, Callable
 
 
-def include(lines: List[str], line_index: int) -> int:
-    pass
-
 def invisible(lines: List[str], line_index: int) -> int:
     pass
 
@@ -32,7 +29,6 @@ def error(lines: List[str], line_index: int) -> int:
 directive_prefix = "@"
 
 handlers = {
-    f"{directive_prefix}include"    : include,
     f"{directive_prefix}invisible"  : invisible,
     f"{directive_prefix}mirror"     : mirror,
     f"{directive_prefix}repeat"     : repeat,
