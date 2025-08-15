@@ -5,6 +5,8 @@ classes for the Python+ compiler preprocessor is defined.
 from collections.abc import Callable
 from typing import List
 
+from context import Context
+
 """ Base Preprocessor Error type for Python+ compiler """
 class PreprocessorError(Exception):
 
@@ -84,7 +86,7 @@ class SourceIndexError(PreprocessorError):
 
     def __init__(self,
                  message: str="",
-                 handler: Callable[[List[str], int], int]=...,
+                 handler: Callable[[List[str], int, Context], int]=...,
                  line: int | None = None):
         self.message = message
         self.handler = handler
@@ -154,7 +156,7 @@ class UnexpectedFileError(PreprocessorError):
     def what(self, source: list[str]):
         if self.line_num is not None and 0 <= self.line_num < len(source):
             line = source[self.line_num]
-            error_string = error_string = f"Unexpected filename at line {self.line_num + 1}: {self.message}\n>{line}"
+            error_string = error_string = f"Unexpected filename at line {self.line_num + 1}: {self.message}\n>{line}\n"
             pos = line.find(self.filename)
             pointer_string = DirectiveSyntaxError.direct_mistake_line(
                 [pos + 1 if pos >= 0 else 0, len(self.filename)],

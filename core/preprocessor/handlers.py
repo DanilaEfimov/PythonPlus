@@ -1,28 +1,41 @@
 from typing import List, Callable
 
+from context import Context
+from errors import *
+from utils import search_end
 
-def invisible(lines: List[str], line_index: int) -> int:
+
+def invisible(lines: List[str], line_index: int, context: Context) -> int:
+    end_index = search_end(lines, line_index)
+    if end_index == -1:
+        raise DirectiveSyntaxError("utils.search_end::Missed 'end' directive", context.base_line)
+    lines[line_index:end_index+1] = []
+    return line_index
+
+
+def mirror(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
-def mirror(lines: List[str], line_index: int) -> int:
+def repeat(lines: List[str], line_index: int, context: Context) -> int:
+    end_index = search_end(lines, line_index)
+    if end_index == -1:
+        raise DirectiveSyntaxError("utils.search_end::Missed 'end' directive", context.base_line)
+    lines[line_index:end_index+1] = lines[line_index+1:end_index] * 5
+    return line_index + 5 * (end_index-line_index-1)
+
+def random(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
-def repeat(lines: List[str], line_index: int) -> int:
+def debug(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
-def random(lines: List[str], line_index: int) -> int:
+def info(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
-def debug(lines: List[str], line_index: int) -> int:
+def warning(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
-def info(lines: List[str], line_index: int) -> int:
-    pass
-
-def warning(lines: List[str], line_index: int) -> int:
-    pass
-
-def error(lines: List[str], line_index: int) -> int:
+def error(lines: List[str], line_index: int, context: Context) -> int:
     pass
 
 
@@ -42,7 +55,7 @@ handlers = {
 
 def register_handler(
         directive: str,
-        handler: Callable[[list[str], int], int],
+        handler: Callable[[list[str], int, Context], int],
         *,
         overwrite: bool=False
 ) -> None:
@@ -84,7 +97,7 @@ def is_directive(line: str, directive: str | None = None) -> bool:
         return any(stripped.startswith(handler) for handler in handlers)
 
 
-def get_handler(line: str) -> Callable[[List[str], int], int]:
+def get_handler(line: str) -> Callable[[List[str], int, Context], int]:
     name = line.split()[0].strip()
     if name not in handlers:
         raise ValueError(f"No handler registered as '{name}'")
@@ -93,4 +106,4 @@ def get_handler(line: str) -> Callable[[List[str], int], int]:
 
 """ vvv All handlers must be registered here vvv """
 import include_handler
-import plugins.register
+import core.plugins.register

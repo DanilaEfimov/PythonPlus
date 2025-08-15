@@ -3,24 +3,27 @@ import sys
 import os
 
 import handlers
+from context import Context
 from errors import *
 
 
-def include(lines: List[str], line_index: int) -> int:
+def include(lines: List[str],
+            line_index: int,
+            context: Context) -> int:
     to_include = read_arg(lines[line_index])
     path_chain = []
 
     if not is_valid_filename(to_include):
-        raise DirectiveSyntaxError(f"Include::Invalid filename: '{to_include}'", line_index)
+        raise DirectiveSyntaxError(f"Include::Invalid filename: '{to_include}'", context.base_line)
     if not file_exists(to_include):
-        raise UnexpectedFileError("checkout given filenames", to_include, line_index)
+        raise UnexpectedFileError("checkout given filenames", to_include, context.base_line)
 
     try:
-        includes = collect_includes(to_include, path_chain)
+        includes = collect_includes(to_include, path_chain, context)
         lines[line_index:line_index+1] = includes
         return line_index
     except PreprocessorError as e:
-        e.line_num = line_index
+        e.line_num = context.base_line
         print(e.what(lines), sys.stderr)
         exit(1)
 
@@ -51,7 +54,9 @@ def file_exists(filename: str) -> bool:
     return os.path.isfile(filename)
 
 
-def collect_includes(to_include: str, path_chain: list[str]) -> list[str]:
+def collect_includes(to_include: str,
+                     path_chain: list[str],
+                     context: Context) -> list[str]:
     if to_include in path_chain:
         raise SelfReferenceError(f"Cyclic include detected. Path chain: {path_chain}", to_include)
 
@@ -64,9 +69,9 @@ def collect_includes(to_include: str, path_chain: list[str]) -> list[str]:
         if is_include(lines[i]):
             path = read_arg(lines[i])
             if path == '':
-                raise DirectiveSyntaxError("include::invalid path syntax")
+                raise UnexpectedFileError("include::invalid path syntax", to_include)
 
-            included_lines = collect_includes(path, path_chain)
+            included_lines = collect_includes(path, path_chain, context)
             lines[i:i+1] = included_lines
             i += len(included_lines)
         else:

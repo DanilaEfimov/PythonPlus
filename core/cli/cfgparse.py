@@ -54,6 +54,12 @@ def init_parser(parser: ArgumentParser) -> None:
         action='version'
     )
 
+    parser.add_argument(
+        '-E',
+        help="enable preprocess only mode",
+        action='store_true'
+    )
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="meta Python compiler for extending language syntax and possibilities"
