@@ -19,8 +19,16 @@ class CommentTable:
     def set_place_holder(source: list[str],
                          line: int,
                          comment_num: int):
+        """
+        it might be used for mark code place to
+        hold removed comments
+        :param source: source code as list[str]
+        :param line: number of comment-free line
+        :param comment_num: unique number identifier for comment
+        :return: special comment-holder for postprocessor
+        """
         holder = f"__COMMENT__{comment_num}"
-        source[line] += f"    #{holder}"
+        source[line] += f" #{holder}"
 
     def __len__(self):
         return len(self.comments)

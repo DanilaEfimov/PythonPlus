@@ -26,7 +26,7 @@ def error(lines: List[str], line_index: int) -> int:
     pass
 
 
-directive_prefix = "@"
+directive_prefix = "@"  # space-free prefix
 
 handlers = {
     f"{directive_prefix}invisible"  : invisible,
@@ -68,7 +68,22 @@ def unregister_handler(directive: str) -> None:
     if not directive.startswith(directive_prefix):
         directive = directive_prefix + directive
 
-    if directive in handlers:
+    if directive not in handlers:
         raise ValueError(f"Directive '{directive}' isn't registered")
 
     handlers.pop(directive)
+
+
+def is_directive(line: str, directive: str | None = None) -> bool:
+    stripped = line.strip()
+    if directive is not None:
+        return stripped.startswith(directive)
+    else:
+        return any(stripped.startswith(handler) for handler in handlers)
+
+
+def get_handler(line: str) -> Callable[[List[str], int], int]:
+    name = line.split()[0].strip()
+    if name not in handlers:
+        raise ValueError(f"No handler registered as '{name}'")
+    return handlers[name]

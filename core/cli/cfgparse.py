@@ -1,10 +1,8 @@
 import argparse
+from argparse import ArgumentParser
 
-parser = argparse.ArgumentParser(
-    description="meta Python compiler for extending language syntax and possibilities"
-)
 
-def init_parser() -> None:
+def init_parser(parser: ArgumentParser) -> None:
     parser.add_argument(
         '-i', '--input',
         help="path to source code Python+ file",
@@ -57,6 +55,10 @@ def init_parser() -> None:
     )
 
 def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="meta Python compiler for extending language syntax and possibilities"
+    )
+    init_parser(parser)
 
     args = parser.parse_args()
 
@@ -66,6 +68,5 @@ def parse_args() -> argparse.Namespace:
     return args
 
 if __name__ == "__main__":
-    init_parser()
     args = parse_args()
     print(args)

@@ -1,7 +1,12 @@
+"""
+In this file, the hierarchy of exception and warning
+classes for the Python+ compiler preprocessor is defined.
+"""
+from collections.abc import Callable
+from typing import List
 
-""" Base Error type for Python+ compiler """
-
-class MyError(Exception):
+""" Base Preprocessor Error type for Python+ compiler """
+class PreprocessorError(Exception):
 
     def __init__(self,
                  message: str="",
@@ -21,11 +26,84 @@ class MyError(Exception):
     def __str__(self):
         return self.message
 
+""" Base Preprocessor Warning type for Python+ compiler """
+class PreprocessorWarning(Warning):
+
+    def __init__(self, message: str):
+        self.message = message
+
+    def what(self):
+        return f"Preprocessor::Warning: {self.message}"
+
+    def __str__(self):
+        return self.what()
+
+class EmptyInputWarning(PreprocessorWarning):
+
+    def __init__(self,
+                 message: str = ""):
+        super().__init__(message)
+
+    def what(self):
+        return f"Was given empty file: {self.message}"
+
+    def __str__(self):
+        return self.what()
+
+class SelfReferenceError(PreprocessorError):
+
+    def __init__(self,
+                 message: str,
+                 filename: str,
+                 line: int | None = None,
+                 column: int | None = None):
+        super().__init__(message)
+        self.filename = filename
+        self.line_num = line
+        self.col_num = column
+
+    def what(self, source: list[str]):
+        if self.line_num is not None and 0 <= self.line_num < len(source):
+            line = source[self.line_num]
+            error_string = f"Circular include error at '{self.filename}' {self.line_num}: {self.message}\n{line}\n"
+
+            if self.col_num is not None and 0 <= self.col_num < len(line):
+                mask = [self.col_num, 1]  # spaces ~ + 1 arrow ^
+                pointer_string = DirectiveSyntaxError.direct_mistake_line(mask, space='~')
+                return error_string + pointer_string
+            else:
+                return error_string
+
+        else:
+            return self.message
+
+class SourceIndexError(PreprocessorError):
+
+    def __init__(self,
+                 message: str="",
+                 handler: Callable[[List[str], int], int]=...,
+                 line: int | None = None):
+        self.message = message
+        self.handler = handler
+        self.line_num = line
+        super().__init__(message)
+
+    def what(self, source: list[str]) -> str:
+        """ returns detailed message about error """
+        if self.line_num is not None and 0 <= self.line_num < len(source):
+            line = source[self.line_num]
+            return f"Handler '{self.handler}' returned invalid index; at line {self.line_num + 1}: {self.message}\n{line}"
+        else:
+            return self.message
+
+    def __str__(self):
+        return self.message
+
 """
 For multylines, or parameter based directives,
 build-time variables declarations
 """
-class DirectiveSyntaxError(MyError):
+class DirectiveSyntaxError(PreprocessorError):
 
     def __init__(self,
                  message: str = "",
@@ -47,14 +125,21 @@ class DirectiveSyntaxError(MyError):
     def what(self, source: list[str], mask: list[int] | None = None) -> str:
         if self.line_num is not None and 0 <= self.line_num < len(source):
             line = source[self.line_num]
-            error_string = f"Invalid directive syntax at ({self.line_num + 1},: {self.message}\n>{line}\n"
-            pointer_string = self.direct_mistake_line(mask)
+            error_string = f"Invalid directive syntax at line {self.line_num + 1}: {self.message}\n>{line}\n"
+
+            if mask is not None:
+                pointer_string = self.direct_mistake_line(mask)
+            elif self.col_num is not None and 0 <= self.col_num < len(line):
+                pointer_string = self.direct_mistake_line([self.col_num, 1])
+            else:
+                pointer_string = ''
+
             return error_string + pointer_string
         else:
             return self.message
 
 
-class UndefinedVariableError(MyError):
+class UndefinedVariableError(PreprocessorError):
 
     def __init__(self,
                  message: str = "",
@@ -69,22 +154,17 @@ class UndefinedVariableError(MyError):
         if self.line_num is not None and 0 <= self.line_num < len(source):
             line = source[self.line_num]
             error_string = f"Invalid directive syntax at ({self.line_num + 1},: {self.message}\n>{line}\n"
-            if self.col_num is not None:
+
+            if self.col_num is not None and 0 <= self.col_num < len(line):
                 mask = [ self.col_num, len(self.identifier) ]
                 pointer_string = DirectiveSyntaxError.direct_mistake_line(mask)
                 return error_string + pointer_string
             else:
                 return error_string
+
         else:
             return self.message
 
 
-"""
-Base Warning type for Python+ compiler
-"""
-
-class MyWarning(Warning):
-    pass
-
-class RedefinitionWarning(MyWarning):
+class RedefinitionWarning(PreprocessorWarning):
     pass
