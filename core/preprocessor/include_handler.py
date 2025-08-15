@@ -1,15 +1,20 @@
-from os import abort
-from typing import List
 import re
 import sys
+import os
 
-from handlers import register_handler, is_directive
+import handlers
 from errors import *
 
 
 def include(lines: List[str], line_index: int) -> int:
-    path_chain = []
     to_include = read_arg(lines[line_index])
+    path_chain = []
+
+    if not is_valid_filename(to_include):
+        raise DirectiveSyntaxError(f"Include::Invalid filename: '{to_include}'", line_index)
+    if not file_exists(to_include):
+        raise UnexpectedFileError("checkout given filenames", to_include, line_index)
+
     try:
         includes = collect_includes(to_include, path_chain)
         lines[line_index:line_index+1] = includes
@@ -21,14 +26,29 @@ def include(lines: List[str], line_index: int) -> int:
 
 
 def read_arg(line: str) -> str:
-    match = re.search(r'\"([^\"]+)\"|\'([^\']+)\'|(\S+)', line)
+    match = re.search(r'include\s+(?:"([^"]+)"|\'([^\']+)\'|(\S+))', line)
     if match:
         return match.group(1) or match.group(2) or match.group(3)
     return ''
 
 
 def is_include(line: str) -> bool:
-    return is_directive(line, "include")
+    return handlers.is_directive(line, "include")
+
+
+def is_valid_filename(filename: str) -> bool:
+    if not len(filename):
+        return False
+
+    forbidden = r'[<>:"/\\|?*]' # Windows
+    if re.search(forbidden, filename):
+        return False
+
+    return True
+
+
+def file_exists(filename: str) -> bool:
+    return os.path.isfile(filename)
 
 
 def collect_includes(to_include: str, path_chain: list[str]) -> list[str]:
@@ -56,4 +76,4 @@ def collect_includes(to_include: str, path_chain: list[str]) -> list[str]:
     return lines
 
 
-register_handler("include", include)
+handlers.register_handler("include", include)

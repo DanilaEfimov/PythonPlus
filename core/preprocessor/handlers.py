@@ -36,7 +36,7 @@ handlers = {
     f"{directive_prefix}debug"      : debug,
     f"{directive_prefix}info"       : info,
     f"{directive_prefix}warning"    : warning,
-    f"{directive_prefix}error"      : error,
+    f"{directive_prefix}error"      : error
 }
 
 
@@ -77,6 +77,8 @@ def unregister_handler(directive: str) -> None:
 def is_directive(line: str, directive: str | None = None) -> bool:
     stripped = line.strip()
     if directive is not None:
+        if not directive.startswith(directive_prefix):
+            directive = directive_prefix + directive
         return stripped.startswith(directive)
     else:
         return any(stripped.startswith(handler) for handler in handlers)
@@ -87,3 +89,8 @@ def get_handler(line: str) -> Callable[[List[str], int], int]:
     if name not in handlers:
         raise ValueError(f"No handler registered as '{name}'")
     return handlers[name]
+
+
+""" vvv All handlers must be registered here vvv """
+import include_handler
+import plugins.register

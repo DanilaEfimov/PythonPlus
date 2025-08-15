@@ -1,5 +1,13 @@
 import argparse
+
 import sys
+import os
+
+core_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'core'))
+sys.path.insert(0, core_path)
+
+from cli.cfgparse import parse_args
+#from core.cli.cfgparse import parse_args
 
 from handlers import is_directive, get_handler
 from errors import *
@@ -27,12 +35,15 @@ def process(args: argparse.Namespace) -> int:
         print(e.what(source), sys.stderr)
         exit(1)
 
+    with open(input_file, 'w', encoding='utf-8') as f:
+        f.writelines(source)
+
     return 0
 
 
 if __name__ == "__main__":
     try:
-        from ..cli.cfgparse import parse_args
+        sys.argv = ['processor.py', '-i', 'example.txt', '--verbose']
         args = parse_args()
         process(args)
     except PreprocessorError as e:

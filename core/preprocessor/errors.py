@@ -38,6 +38,7 @@ class PreprocessorWarning(Warning):
     def __str__(self):
         return self.what()
 
+
 class EmptyInputWarning(PreprocessorWarning):
 
     def __init__(self,
@@ -49,6 +50,7 @@ class EmptyInputWarning(PreprocessorWarning):
 
     def __str__(self):
         return self.what()
+
 
 class SelfReferenceError(PreprocessorError):
 
@@ -65,7 +67,7 @@ class SelfReferenceError(PreprocessorError):
     def what(self, source: list[str]):
         if self.line_num is not None and 0 <= self.line_num < len(source):
             line = source[self.line_num]
-            error_string = f"Circular include error at '{self.filename}' {self.line_num}: {self.message}\n{line}\n"
+            error_string = f"Circular include error at '{self.filename}' line {self.line_num + 1}: {self.message}\n>{line}\n"
 
             if self.col_num is not None and 0 <= self.col_num < len(line):
                 mask = [self.col_num, 1]  # spaces ~ + 1 arrow ^
@@ -76,6 +78,7 @@ class SelfReferenceError(PreprocessorError):
 
         else:
             return self.message
+
 
 class SourceIndexError(PreprocessorError):
 
@@ -120,7 +123,7 @@ class DirectiveSyntaxError(PreprocessorError):
         return ''.join(
             (arrow * n if i%2 else space * n)
             for i, n in enumerate(mask)
-        )
+        ) + '\n'
 
     def what(self, source: list[str], mask: list[int] | None = None) -> str:
         if self.line_num is not None and 0 <= self.line_num < len(source):
@@ -139,6 +142,32 @@ class DirectiveSyntaxError(PreprocessorError):
             return self.message
 
 
+class UnexpectedFileError(PreprocessorError):
+
+    def __init__(self,
+                 message: str,
+                 filename: str,
+                 line: int | None = None):
+        super().__init__(message, line)
+        self.filename = filename
+
+    def what(self, source: list[str]):
+        if self.line_num is not None and 0 <= self.line_num < len(source):
+            line = source[self.line_num]
+            error_string = error_string = f"Unexpected filename at line {self.line_num + 1}: {self.message}\n>{line}"
+            pos = line.find(self.filename)
+            pointer_string = DirectiveSyntaxError.direct_mistake_line(
+                [pos + 1 if pos >= 0 else 0, len(self.filename)],
+                space='~'
+            )
+            return error_string + pointer_string
+        else:
+            return self.message
+
+    def __str__(self):
+        return f"Unexpected filename: '{self.filename}';\n{self.message}"
+
+
 class UndefinedVariableError(PreprocessorError):
 
     def __init__(self,
@@ -153,7 +182,7 @@ class UndefinedVariableError(PreprocessorError):
     def what(self, source: list[str]):
         if self.line_num is not None and 0 <= self.line_num < len(source):
             line = source[self.line_num]
-            error_string = f"Invalid directive syntax at ({self.line_num + 1},: {self.message}\n>{line}\n"
+            error_string = f"Invalid directive syntax at ({self.line_num + 1}): {self.message}\n>{line}\n"
 
             if self.col_num is not None and 0 <= self.col_num < len(line):
                 mask = [ self.col_num, len(self.identifier) ]
