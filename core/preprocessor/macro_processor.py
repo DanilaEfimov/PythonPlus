@@ -62,6 +62,7 @@ class ParamMacros(Macros):
             """
         return bool(re.match(pattern, line, re.VERBOSE))
 
+
 class MacrosTable:
 
     def __init__(self,
@@ -84,7 +85,9 @@ def expand_macros(lines: list[str], table: MacrosTable) -> int:
     :param table: table of defined macros
     :return: exit code of preprocessing
     """
-    if not hasattr(table, "macros_expanded"):
-        setattr(table, "macros_expanded", True)
+    if not hasattr(expand_macros, "macros_expanded"):
+        setattr(expand_macros, "macros_expanded", True)
+        for i, line in enumerate(lines):
+            lines[i] = table.replace(line)
         return 0
     return 1
