@@ -2,6 +2,7 @@ import argparse
 import sys
 import os
 
+
 from utils import replace_extension
 
 core_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'core'))
@@ -20,6 +21,7 @@ def process(args: argparse.Namespace) -> Context:
 
     context = Context(args, [], input_file)
     pointer = 0
+
     try:
         while pointer < len(source):
             if is_directive(source[pointer]):
@@ -31,6 +33,10 @@ def process(args: argparse.Namespace) -> Context:
                     raise SourceIndexError(f"invalid index returned: {pointer}", handler)
             else:
                 pointer += 1
+
+        from macro_processor import expand_macros
+        expand_macros(source, context.macro_table)
+
     except PreprocessorError as e:
         e.line_num = pointer
         print(e.what(source), file=sys.stderr)
@@ -52,12 +58,15 @@ if __name__ == "__main__":
         sys.argv = ['processor.py', '-i', 'example.txt', '--verbose', '-E', '-o', 'output']
         args = parse_args()
         process(args)
+
     except PreprocessorError as e:
         print(f"Error: {e}", file=sys.stderr)
         exit(1)
+
     except IOError as e:
         print(f"I/O Error: {e}", file=sys.stderr)
         exit(3)
+
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
         exit(2)

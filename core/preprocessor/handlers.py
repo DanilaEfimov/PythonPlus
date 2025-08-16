@@ -106,4 +106,5 @@ def get_handler(line: str) -> Callable[[List[str], int, Context], int]:
 
 """ vvv All handlers must be registered here vvv """
 import include
+import conditional
 import core.plugins.register    # preprocessor API plugins

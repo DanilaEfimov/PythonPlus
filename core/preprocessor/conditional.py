@@ -13,7 +13,14 @@ def end(lines: List[str], line_index: int, context: Context) -> int:
     return line_index   # nothing modified
 
 def define(lines: List[str], line_index: int, context: Context) -> int:
-    pass
+    from macro_processor import Macros, ParamMacros
+
+    line = lines[line_index]
+    if Macros.is_valid_syntax(line):
+        context.macro_table.table.append(Macros(line,line))
+
+    lines.pop(line_index)
+    return line_index
 
 def undef(lines: List[str], line_index: int, context: Context) -> int:
     pass
@@ -25,7 +32,8 @@ def ifpp(lines: List[str], line_index: int) -> int:
 conditional_handlers ={
     "define" : define,
     "undef" : undef,
-    "if" : ifpp
+    "if" : ifpp,
+    "end": end
 }
 
 for name, handler in conditional_handlers.items():
