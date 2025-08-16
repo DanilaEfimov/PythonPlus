@@ -3,10 +3,15 @@ import platform
 import sys
 import uuid
 import os
+import warnings
+
+from errors import RedefinitionWarning
+
 
 class BuildVarsTable:
+
     def __init__(self):
-        self.vars = {}
+        self.vars = dict()
 
         self.vars["__FILE__"] = ""
         self.vars["__DATE__"] = time.strftime("%Y-%m-%d")
@@ -22,4 +27,11 @@ class BuildVarsTable:
         self.vars["__MAGIC_CODE__"] = 0xABCDEF
 
     def add(self, var, identifier: str, qualifiers: list[str]) -> None:
-        pass
+        if identifier in self.vars:
+            warnings.warn("", RedefinitionWarning(f"variable '{identifier}' already defined"))
+
+        table_line = {
+            "value": var,
+            "qualifiers": qualifiers
+        }
+        self.vars[identifier] = table_line

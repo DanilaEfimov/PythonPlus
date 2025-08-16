@@ -1,16 +1,18 @@
 from typing import List, Callable
 
 from context import Context
-from errors import *
+from errors import DirectiveSyntaxError
 from utils import search_end
 
 
+def setvar(lines: List[str], line_index: int, context: Context) -> int:
+    pass
+
+
 def invisible(lines: List[str], line_index: int, context: Context) -> int:
-    end_index = search_end(lines, line_index)
-    if end_index == -1:
-        raise DirectiveSyntaxError("utils.search_end::Missed 'end' directive", context.base_line)
-    lines[line_index:end_index+1] = []
-    return line_index
+    # @invisible ~ @repeat 0
+    lines[line_index] = f"{directive_prefix}repeat {0}"
+    return repeat(lines, line_index, context)
 
 
 def mirror(lines: List[str], line_index: int, context: Context) -> int:
@@ -59,7 +61,6 @@ def register_handler(
         *,
         overwrite: bool=False
 ) -> None:
-    global handlers
 
     if not directive.startswith(directive_prefix):
         directive = directive_prefix + directive
@@ -76,7 +77,6 @@ def register_handler(
 
 
 def unregister_handler(directive: str) -> None:
-    global handlers
 
     if not directive.startswith(directive_prefix):
         directive = directive_prefix + directive
@@ -105,5 +105,5 @@ def get_handler(line: str) -> Callable[[List[str], int, Context], int]:
 
 
 """ vvv All handlers must be registered here vvv """
-import include_handler
-import core.plugins.register
+import include
+import core.plugins.register    # preprocessor API plugins

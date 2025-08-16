@@ -1,10 +1,16 @@
 import re
 import sys
 import os
+from typing import List
 
 import handlers
 from context import Context
-from errors import *
+from errors import (
+    DirectiveSyntaxError,
+    UnexpectedFileError,
+    SelfReferenceError,
+    PreprocessorError
+)
 
 
 def include(lines: List[str],
@@ -25,7 +31,7 @@ def include(lines: List[str],
     except PreprocessorError as e:
         e.line_num = context.base_line
         print(e.what(lines), sys.stderr)
-        exit(1)
+        return -1
 
 
 def read_arg(line: str) -> str:

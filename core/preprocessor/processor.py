@@ -1,5 +1,4 @@
 import argparse
-
 import sys
 import os
 
@@ -11,7 +10,7 @@ sys.path.insert(0, core_path)
 from cli.cfgparse import parse_args
 from context import Context
 from handlers import is_directive, get_handler
-from errors import *
+from errors import PreprocessorError, SourceIndexError
 
 
 def process(args: argparse.Namespace) -> Context:
