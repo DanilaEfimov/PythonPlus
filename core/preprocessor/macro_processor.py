@@ -2,22 +2,40 @@ import io
 import tokenize
 import re
 
+from core.preprocessor.errors import MissedEndOfBlock, DirectiveSyntaxError
+from utils import search_end
 from handlers import directive_prefix
 
 
 class Macros:
 
-    def __init__(self, holder: str, name: str):
-        self.holder = holder
-        self.name = name
+    def __init__(self, lines: list[str], line_index: int):
+        header = lines[line_index]
+        tokens = header.split()
+        if Macros.is_multiline_syntax(header):
+            end_index = search_end(lines, line_index)
+            if end_index < line_index:
+                raise MissedEndOfBlock(f"\n{header}\n", line_index)
+
+            self.holder = tokens[1]
+            self.body = '\n'.join(lines[line_index+1:end_index])
+
+        elif Macros.is_singleline_syntax(header):
+            body_start = header.find(self.holder) + len(self.holder)
+            self.holder = tokens[1]
+            self.body = header[body_start:].strip()
+
+        else:
+            raise DirectiveSyntaxError("checkout multi/single macro syntax", line_index)
+
 
     def replace(self, line: str) -> str:
         result = []
         tokens = tokenize.generate_tokens(io.StringIO(line).readline)
 
         for tok_type, tok_string, _, _, _ in tokens:
-            if tok_type == tokenize.NAME and tok_string == self.name:
-                result.append((tok_type, self.name))
+            if tok_type == tokenize.NAME and tok_string == self.holder:
+                result.append((tok_type, self.holder))
             else:
                 result.append((tok_type, tok_string))
 
@@ -36,15 +54,24 @@ class Macros:
             """
         return bool(re.match(pattern, line))
 
+    @staticmethod
+    def is_multiline_syntax(line: str) -> bool:
+        if Macros.is_valid_syntax(line):
+            return len(line.split()) == 2
+        return False
+
+    @staticmethod
+    def is_singleline_syntax(line: str) -> bool:
+        if Macros.is_valid_syntax(line):
+            return len(line) > 2
+        return False
+
 
 class ParamMacros(Macros):
 
-    def __init__(self,
-                 holder: str,
-                 name: str,
-                 args: list[str]):
-        super().__init__(holder, name)
-        self.args = args
+    def __init__(self, line):
+        super().__init__("holder")
+        self.args = {}
 
     def replace(self, line: str) -> str:
         pass
@@ -63,6 +90,10 @@ class ParamMacros(Macros):
         return bool(re.match(pattern, line, re.VERBOSE))
 
 
+"""
+Class for preprocessing context. Contains and managing
+macro defines: expands and save them
+"""
 class MacrosTable:
 
     def __init__(self,

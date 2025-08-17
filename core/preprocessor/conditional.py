@@ -18,6 +18,8 @@ def define(lines: List[str], line_index: int, context: Context) -> int:
     line = lines[line_index]
     if Macros.is_valid_syntax(line):
         context.macro_table.table.append(Macros(line,line))
+    if ParamMacros.is_valid_syntax(line):
+        context.macro_table.table.append(ParamMacros(line, line, []))
 
     lines.pop(line_index)
     return line_index

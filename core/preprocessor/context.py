@@ -34,3 +34,6 @@ class Context:
         self.vars_table = BuildVarsTable()
         self.code = 0
         self.state = State.INIT
+
+    def set_state(self, state: State) -> None:
+        self.state = state

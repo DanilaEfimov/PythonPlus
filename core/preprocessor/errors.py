@@ -196,5 +196,31 @@ class UndefinedVariableError(PreprocessorError):
             return self.message
 
 
+class MissedEndOfBlock(DirectiveSyntaxError):
+
+    def __init__(self,
+                 message: str,
+                 line: int):
+        super().__init__(message, line)
+
+    def what(self, source: list[str], mask: list[int] | None = None) -> str:
+        if self.line_num is not None and 0 <= self.line_num < len(source):
+            line = source[self.line_num]
+            error_string = f"Missed '@end' of block ({self.line_num + 1}): {self.message}\n>{line}\n"
+
+            if self.col_num is not None and 0 <= self.col_num < len(line):
+                mask = [self.col_num, 1]
+                pointer_string = DirectiveSyntaxError.direct_mistake_line(mask)
+                return error_string + pointer_string
+            else:
+                return error_string
+
+        else:
+            return self.message
+
+    def __str__(self):
+        return self.message
+
+
 class RedefinitionWarning(PreprocessorWarning):
     pass
