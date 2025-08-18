@@ -20,6 +20,11 @@ class Macros:
             self.body = ""
             self.name = ""
 
+    @classmethod
+    def from_name(cls, name: str):
+        free_pattern = "\"\"\"\"\"\""
+        return Macros([f"{directive_prefix}define {name} {free_pattern}"], 0)
+
     @staticmethod
     def is_multiline_syntax(line: str) -> bool:
         splited = line.split()
@@ -47,7 +52,7 @@ class Macros:
             if end_index <= line_index:
                 raise MissedEndOfBlock(f"{lines[line_index]}", line_index)
 
-            self.body = lines[line_index + 1:end_index]
+            self.body = '\n'.join(lines[line_index + 1:end_index])
             self.name = lines[line_index].split()[1]
             setattr(self, "inited", True)
 
@@ -55,13 +60,18 @@ class Macros:
                      lines: list[str],
                      line_index: int) -> None:
         if not hasattr(self, "inited"):
-            if not Macros.is_multiline_syntax(lines[line_index]):
+            if not Macros.is_singleline_syntax(lines[line_index]):
                 raise DirectiveSyntaxError("invalid single line macro define syntax", line_index)
 
             splited = lines[line_index].split()
             self.body = ' '.join(splited[2:])
             self.name = splited[1]
             setattr(self, "inited", True)
+
+    def expand(self, line: str) -> str:
+        pattern = rf"\b{re.escape(self.name)}\b"
+        line = re.sub(pattern, self.body, line)
+        return line
 
 
 class MacrosParam(Macros):
@@ -78,14 +88,19 @@ class MacrosParam(Macros):
         self.signature = 0
         self.search_parameters()
 
-    def search_parameters(self):
+    def search_parameters(self) -> None:
         if not hasattr(self, "params_inited"):
-            found = True
             self.signature = 0
-            while bool(found):
-                found = re.search(rf'\bp_{self.signature}\b', self.body)
+            while bool(re.search(rf'\bp_{self.signature}\b', self.body)):
                 self.signature += 1
             setattr(self, "params_inited", True)
+
+    @classmethod
+    def from_name_and_sign(cls, name: str, signature: int):
+        free_pattern = "\"\"\"\"\"\""
+        macros = MacrosParam([f"{directive_prefix}define {name} {free_pattern}"], 0)
+        macros.signature = signature
+        return macros
 
 """
 Class for preprocessing context. Contains and managing
@@ -95,7 +110,20 @@ class MacrosTable:
 
     def __init__(self,
                  defines: list[str]):
-        pass
+        self.table = []
+        for name in defines:
+            self.add_single(name)
+
+    def expand(self, line: str) -> str:
+        for macros in self.table:
+            line = macros.expand(line)
+        return line
+
+    def add_single(self, name: str) -> None:
+        self.table.append(Macros.from_name(name))
+
+    def add_param(self, name: str, signature: int) -> None:
+        self.table.append(MacrosParam.from_name_and_sign(name, signature))
 
 
 def expand_macros(lines: list[str], table: MacrosTable) -> int:
@@ -106,8 +134,8 @@ def expand_macros(lines: list[str], table: MacrosTable) -> int:
     :return: exit code of preprocessing
     """
     if not hasattr(expand_macros, "macros_expanded"):
-        setattr(expand_macros, "macros_expanded", True)
         for i, line in enumerate(lines):
-            lines[i] = table.replace(line)
+            lines[i] = table.expand(line)
+        setattr(expand_macros, "macros_expanded", True)
         return 0
     return 1
