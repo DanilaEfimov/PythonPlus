@@ -2,93 +2,90 @@ import io
 import tokenize
 import re
 
-from core.preprocessor.errors import MissedEndOfBlock, DirectiveSyntaxError
+from errors import MissedEndOfBlock, DirectiveSyntaxError
 from utils import search_end
 from handlers import directive_prefix
 
 
 class Macros:
 
-    def __init__(self, lines: list[str], line_index: int):
-        header = lines[line_index]
-        tokens = header.split()
-        if Macros.is_multiline_syntax(header):
-            end_index = search_end(lines, line_index)
-            if end_index < line_index:
-                raise MissedEndOfBlock(f"\n{header}\n", line_index)
-
-            self.holder = tokens[1]
-            self.body = '\n'.join(lines[line_index+1:end_index])
-
-        elif Macros.is_singleline_syntax(header):
-            body_start = header.find(self.holder) + len(self.holder)
-            self.holder = tokens[1]
-            self.body = header[body_start:].strip()
-
+    def __init__(self,
+                 lines: list[str],
+                 line_index: int):
+        if self.is_multiline_syntax(lines[line_index]):
+            self.init_by_lines(lines, line_index)
+        elif self.is_singleline_syntax(lines[line_index]):
+            self.init_by_line(lines, line_index)
         else:
-            raise DirectiveSyntaxError("checkout multi/single macro syntax", line_index)
-
-
-    def replace(self, line: str) -> str:
-        result = []
-        tokens = tokenize.generate_tokens(io.StringIO(line).readline)
-
-        for tok_type, tok_string, _, _, _ in tokens:
-            if tok_type == tokenize.NAME and tok_string == self.holder:
-                result.append((tok_type, self.holder))
-            else:
-                result.append((tok_type, tok_string))
-
-        return tokenize.untokenize(result)
-
-    @staticmethod
-    def is_valid_syntax(line: str) -> bool:
-        pattern = rf"""
-            ^\s*
-            {re.escape(directive_prefix)}define
-            \s+
-            ([A-Za-z_][A-Za-z0-9_]*)
-            \s+
-            (.*)
-            $
-            """
-        return bool(re.match(pattern, line))
+            self.body = ""
+            self.name = ""
 
     @staticmethod
     def is_multiline_syntax(line: str) -> bool:
-        if Macros.is_valid_syntax(line):
-            return len(line.split()) == 2
-        return False
+        splited = line.split()
+        if len(splited) != 2:
+            return False
+        return (splited[0] == f"{directive_prefix}define"
+                and bool(re.match(r"\w+$", splited[1])))
 
     @staticmethod
     def is_singleline_syntax(line: str) -> bool:
-        if Macros.is_valid_syntax(line):
-            return len(line) > 2
-        return False
+        splited = line.split()
+        if len(splited) < 3:
+            return False
+
+        return (splited[0] == f"{directive_prefix}define"
+                and bool(re.match(r"\w+$", splited[1])))
+
+    def init_by_lines(self,
+                      lines: list[str],
+                      line_index: int) -> None:
+        if not hasattr(self, "inited"):
+            if not Macros.is_multiline_syntax(lines[line_index]):
+                raise DirectiveSyntaxError("invalid multiline macro define syntax", line_index)
+            end_index = search_end(lines, line_index)
+            if end_index <= line_index:
+                raise MissedEndOfBlock(f"{lines[line_index]}", line_index)
+
+            self.body = lines[line_index + 1:end_index]
+            self.name = lines[line_index].split()[1]
+            setattr(self, "inited", True)
+
+    def init_by_line(self,
+                     lines: list[str],
+                     line_index: int) -> None:
+        if not hasattr(self, "inited"):
+            if not Macros.is_multiline_syntax(lines[line_index]):
+                raise DirectiveSyntaxError("invalid single line macro define syntax", line_index)
+
+            splited = lines[line_index].split()
+            self.body = ' '.join(splited[2:])
+            self.name = splited[1]
+            setattr(self, "inited", True)
 
 
-class ParamMacros(Macros):
+class MacrosParam(Macros):
 
-    def __init__(self, line):
-        super().__init__("holder")
-        self.args = {}
+    """ this syntax have not '('
+    but every parameter have predefined name as
+    {param_prefix}{number} (p_0, p_1, P_2 ...) """
+    param_prefix = "p_"
 
-    def replace(self, line: str) -> str:
-        pass
+    def __init__(self,
+                 lines: list[str],
+                 line_index: int):
+        super().__init__(lines, line_index)
+        self.signature = 0
+        self.search_parameters()
 
-    @staticmethod
-    def is_valid_syntax(line: str) -> bool:
-        pattern = rf"""^\s*  
-            {re.escape(directive_prefix)}define
-            \s+
-            ([A-Za-z_][A-Za-z0-9_]*)
-            \s*
-            (?:\(([^)]*)\))?
-            \s+
-            (.+)$
-            """
-        return bool(re.match(pattern, line, re.VERBOSE))
-
+    def search_parameters(self):
+        if not hasattr(self, "params_inited"):
+            found = True
+            self.signature = 0
+            while bool(found):
+                found = re.search(rf'\bp_{self.signature}\b', self.body)
+                self.signature += 1
+            setattr(self, "params_inited", True)
 
 """
 Class for preprocessing context. Contains and managing
@@ -98,15 +95,7 @@ class MacrosTable:
 
     def __init__(self,
                  defines: list[str]):
-        self.table = [Macros(holder, "") for holder in defines]
-
-    def is_defined(self, symbol: str) -> bool:
-        return any([macro.holder == symbol for macro in self.table])
-
-    def replace(self, line: str) -> str:
-        for macro in self.table:
-            line = macro.replace(line)
-        return line
+        pass
 
 
 def expand_macros(lines: list[str], table: MacrosTable) -> int:
