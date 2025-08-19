@@ -1,132 +1,118 @@
+import io
 import re
+import tokenize
 
-from errors import MissedEndOfBlock, DirectiveSyntaxError
-from utils import search_end
+from core.preprocessor.errors import ArgumentMismatchError, MacrosSyntaxError
+from errors import DirectiveSyntaxError
 from handlers import directive_prefix
-
 
 class Macros:
 
     def __init__(self,
-                 lines: list[str],
-                 line_index: int):
-        if self.is_multiline_syntax(lines[line_index]):
-            self.init_by_lines(lines, line_index)
-        elif self.is_singleline_syntax(lines[line_index]):
-            self.init_by_line(lines, line_index)
+                 name: str,
+                 body: str | None = None):
+        self.name = name
+        if body is None:
+            self.body = ''
         else:
-            self.body = ""
-            self.name = ""
-
-    @classmethod
-    def from_name(cls, name: str):
-        free_pattern = "\"\"\"\"\"\""
-        return Macros([f"{directive_prefix}define {name} {free_pattern}"], 0)
+            self.body = body
 
     @staticmethod
-    def is_multiline_syntax(line: str) -> bool:
-        splited = line.split()
-        if len(splited) != 2:
-            return False
-        return (splited[0] == f"{directive_prefix}define"
-                and bool(re.match(r"\w+$", splited[1])))
+    def is_valid_syntax(line: str) -> bool:
+        return Macros.is_singleline_syntax(line) or Macros.is_multyline_syntax(line)
 
     @staticmethod
     def is_singleline_syntax(line: str) -> bool:
-        splited = line.split()
-        if len(splited) < 3:
-            return False
+        splited = [word.strip() for word in line.split()]
+        if len(splited) > 2:
+            return (splited[0] == f"{directive_prefix}define"
+                and bool(re.fullmatch(r'[A-Za-z_]+', splited[1])))
+        return False
 
-        return (splited[0] == f"{directive_prefix}define"
-                and bool(re.match(r"\w+$", splited[1])))
+    @staticmethod
+    def is_multyline_syntax(line: str) -> bool:
+        splited = [word.strip() for word in line.split()]
+        if len(splited) == 2:
+            return (splited[0] == f"{directive_prefix}define"
+                    and bool(re.fullmatch(r'[A-Za-z_]+', splited[1])))
+        return False
 
-    def init_by_lines(self,
-                      lines: list[str],
-                      line_index: int) -> None:
-        if not hasattr(self, "inited"):
-            if not Macros.is_multiline_syntax(lines[line_index]):
-                raise DirectiveSyntaxError("invalid multiline macro define syntax", line_index)
-            end_index = search_end(lines, line_index)
-            if end_index <= line_index:
-                raise MissedEndOfBlock(f"{lines[line_index]}", line_index)
-
-            self.body = '\n'.join(lines[line_index + 1:end_index])
-            self.name = lines[line_index].split()[1]
-            lines[line_index:end_index+1] = []
-            setattr(self, "inited", True)
-
-    def init_by_line(self,
-                     lines: list[str],
-                     line_index: int) -> None:
-        if not hasattr(self, "inited"):
-            if not Macros.is_singleline_syntax(lines[line_index]):
-                raise DirectiveSyntaxError("invalid single line macro define syntax", line_index)
-
-            splited = lines[line_index].split()
-            self.body = ' '.join(splited[2:])
-            self.name = splited[1]
-            lines.pop(line_index)
-            setattr(self, "inited", True)
+    def set_body(self, body: str) -> None:
+        self.body = body
 
     def expand(self, line: str) -> str:
-        pattern = rf"\b{re.escape(self.name)}\b"
-        line = re.sub(pattern, self.body, line)
-        return line
-
-
-class MacrosParam(Macros):
-
-    """ this syntax have not '('
-    but every parameter have predefined name as
-    {param_prefix}{number} (p_0, p_1, P_2 ...) """
-    param_prefix = "p_"
-
-    def __init__(self,
-                 lines: list[str],
-                 line_index: int):
-        super().__init__(lines, line_index)
-        self.signature = 0
-        self.search_parameters()
-        self.params = []
-
-    def search_parameters(self) -> None:
-        if not hasattr(self, "params_inited"):
-            self.signature = 0
-            while bool(re.search(rf'\b{self.param_prefix}{self.signature}\b', self.body)):
-                self.signature += 1
-            setattr(self, "params_inited", True)
-
-    def read_parameters(self, line: str) -> None:
-        match = re.search(rf'{re.escape(self.name)}\[\s*(.*?)\s*\]', line)
-        if not match:
-            self.params = []
-            return
-
-        items = match.group(1).split(",")
-        params = [item.strip() for item in items]
-        if len(params) != self.signature:
-            raise ValueError(
-                f"Number of parameters ({len(self.params)}) does not match the expected ({self.signature}): {self.name}"
-            )
-        self.params = params
-
-    @classmethod
-    def from_name_and_sign(cls, name: str, signature: int):
-        free_pattern = "\"\"\"\"\"\""
-        macros = MacrosParam([f"{directive_prefix}define {name} {free_pattern}"], 0)
-        macros.signature = signature
-        return macros
-
-    def expand(self, line: str) -> str:
-        body = self.body
-        for i in range(self.signature):
-            pattern = fr"\b{self.param_prefix}{i}\b"
-            body = re.sub(pattern, self.params[i], body)
-
-        pattern = rf'{re.escape(self.name)}\[[^\]]*\]'
-        result = re.sub(pattern, body, line)
+        new_tokens = []
+        for token in tokenize.tokenize(io.BytesIO(line.encode()).readline):
+            if token.type == tokenize.NAME and token.string.strip() == self.name:
+                token = tokenize.TokenInfo(
+                    type=token.type,
+                    string=self.body,
+                    start=token.start,
+                    end=token.end,
+                    line=token.line
+                )
+            new_tokens.append(token)
+        result = tokenize.untokenize(new_tokens).decode('utf-8')
         return result
 
+class ParamMacros(Macros):
+
+    def __init__(self,
+                 name: str,
+                 body: str | None = None,
+                 params: list[str] | None = None):
+        super().__init__(name, body)
+        if params is None:
+            self.params = []
+        else:
+            self.params = [Macros(name) for name in params]
+
+    @staticmethod
+    def is_singleline_syntax(line: str) -> bool:
+        pattern = rf'^{re.escape(directive_prefix)}define\s+\w+\s*\([^()]*\)\s+.+$'
+        return bool(re.match(pattern, line.strip()))
+
+    @staticmethod
+    def is_multyline_syntax(line: str) -> bool:
+        pattern = rf'^{re.escape(directive_prefix)}define\s+\w+\s*\([^()]*\)\s*$'
+        return bool(re.match(pattern, line.strip()))
+
+    @staticmethod
+    def get_name(line: str) -> str:
+        pattern = rf'{re.escape(directive_prefix)}define\s+(?P<name>\w+)'
+        match = re.search(pattern, line)
+        if match:
+            name = match.group('name')
+            return name
+        raise DirectiveSyntaxError(f"Invalid parameter macros syntax:\n{line}")
+
+    def get_values(self, line: str) -> list[str]:
+        pattern = rf'{re.escape(directive_prefix)}define\s+{re.escape(self.name)}\s*\((?P<args>[^()]*)\)'
+        match = re.match(pattern, line)
+        if not match:
+            raise MacrosSyntaxError(f"Invalid macro call: {line}")
+        args_str = match.group("args")
+        args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+        return args
+
+    def set_params(self, values: list[str]) -> None:
+        size = len(self.params)
+        if len(values) != size:
+            raise ArgumentMismatchError(f"required {size}, given {len(values)}\n{values}")
+
+        for i in range(size):
+            self.params[i].set_body(values[i])
+
+    def expand(self, line: str) -> str:
+        pattern = rf'''
+            \b{re.escape(self.name)}\b
+            \s*
+            \((?P<args>[^()]*?)\)
+            '''
+        match = re.search(pattern, line, re.VERBOSE)
+        new_tokens = []
+        for token in tokenize.tokenize(io.BytesIO(line.encode()).readline):
+            pass
 
 """
 Class for preprocessing context. Contains and managing
@@ -138,18 +124,18 @@ class MacrosTable:
                  defines: list[str]):
         self.table = []
         for name in defines:
-            self.add_single(name)
+            self.table.append(Macros(name))
+
+    def append(self, macros: Macros) -> None:
+        self.table.append(macros)
+
+    def pop(self, index: int) -> None:
+        self.table.pop(index)
 
     def expand(self, line: str) -> str:
         for macros in self.table:
             line = macros.expand(line)
         return line
-
-    def add_single(self, name: str) -> None:
-        self.table.append(Macros.from_name(name))
-
-    def add_param(self, name: str, signature: int) -> None:
-        self.table.append(MacrosParam.from_name_and_sign(name, signature))
 
 
 def expand_macros(lines: list[str], table: MacrosTable) -> int:
@@ -159,9 +145,8 @@ def expand_macros(lines: list[str], table: MacrosTable) -> int:
     :param table: table of defined macros
     :return: exit code of preprocessing
     """
-    if not hasattr(expand_macros, "macros_expanded"):
-        for i, line in enumerate(lines):
+    for i, line in enumerate(lines):
+        if line.strip():
             lines[i] = table.expand(line)
-        setattr(expand_macros, "macros_expanded", True)
-        return 0
-    return 1
+    return 0
+
