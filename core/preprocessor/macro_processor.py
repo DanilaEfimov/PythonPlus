@@ -1,5 +1,3 @@
-import io
-import tokenize
 import re
 
 from errors import MissedEndOfBlock, DirectiveSyntaxError
@@ -54,6 +52,7 @@ class Macros:
 
             self.body = '\n'.join(lines[line_index + 1:end_index])
             self.name = lines[line_index].split()[1]
+            lines[line_index:end_index+1] = []
             setattr(self, "inited", True)
 
     def init_by_line(self,
@@ -66,6 +65,7 @@ class Macros:
             splited = lines[line_index].split()
             self.body = ' '.join(splited[2:])
             self.name = splited[1]
+            lines.pop(line_index)
             setattr(self, "inited", True)
 
     def expand(self, line: str) -> str:
@@ -87,13 +87,28 @@ class MacrosParam(Macros):
         super().__init__(lines, line_index)
         self.signature = 0
         self.search_parameters()
+        self.params = []
 
     def search_parameters(self) -> None:
         if not hasattr(self, "params_inited"):
             self.signature = 0
-            while bool(re.search(rf'\bp_{self.signature}\b', self.body)):
+            while bool(re.search(rf'\b{self.param_prefix}{self.signature}\b', self.body)):
                 self.signature += 1
             setattr(self, "params_inited", True)
+
+    def read_parameters(self, line: str) -> None:
+        match = re.search(rf'{re.escape(self.name)}\[\s*(.*?)\s*\]', line)
+        if not match:
+            self.params = []
+            return
+
+        items = match.group(1).split(",")
+        params = [item.strip() for item in items]
+        if len(params) != self.signature:
+            raise ValueError(
+                f"Number of parameters ({len(self.params)}) does not match the expected ({self.signature}): {self.name}"
+            )
+        self.params = params
 
     @classmethod
     def from_name_and_sign(cls, name: str, signature: int):
@@ -101,6 +116,17 @@ class MacrosParam(Macros):
         macros = MacrosParam([f"{directive_prefix}define {name} {free_pattern}"], 0)
         macros.signature = signature
         return macros
+
+    def expand(self, line: str) -> str:
+        body = self.body
+        for i in range(self.signature):
+            pattern = fr"\b{self.param_prefix}{i}\b"
+            body = re.sub(pattern, self.params[i], body)
+
+        pattern = rf'{re.escape(self.name)}\[[^\]]*\]'
+        result = re.sub(pattern, body, line)
+        return result
+
 
 """
 Class for preprocessing context. Contains and managing

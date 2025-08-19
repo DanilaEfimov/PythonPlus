@@ -1,5 +1,6 @@
 from typing import List, Callable
 
+from core.preprocessor.utils import search_end
 from errors import *
 from handlers import register_handler, directive_prefix
 from context import Context, State
@@ -13,15 +14,17 @@ def end(lines: List[str], line_index: int, context: Context) -> int:
     return line_index   # nothing modified
 
 def define(lines: List[str], line_index: int, context: Context) -> int:
-    from macro_processor import Macros, ParamMacros
+    from macro_processor import Macros, MacrosParam
 
-    line = lines[line_index]
-    if Macros.is_valid_syntax(line):
-        context.macro_table.table.append(Macros(line,line))
-    if ParamMacros.is_valid_syntax(line):
-        context.macro_table.table.append(ParamMacros(line, line, []))
+    if lines[line_index].split()[1].startswith('__'):
+        macros = MacrosParam(lines, line_index)
+        context.macro_table.table.append(macros)
+    else:
+        macros = Macros(lines, line_index)
+        context.macro_table.table.append(macros)
 
-    lines.pop(line_index)
+    end_index = search_end(lines, line_index)
+    lines[line_index:end_index+1] = []
     return line_index
 
 def undef(lines: List[str], line_index: int, context: Context) -> int:
