@@ -61,9 +61,34 @@ def define(lines: List[str], line_index: int, context: Context) -> int:
     return line_index
 
 def undef(lines: List[str], line_index: int, context: Context) -> int:
-    pass
+    line = lines[line_index].strip()
+    if not line.startswith(f'{directive_prefix}undef'):
+        raise DirectiveSyntaxError("@undef::no directive", line_index)
+
+    pattern = rf'''
+        {re.escape(directive_prefix)}undef
+        \s+
+        ([A-Za-z_][A-Za-z0-9_]*      
+        (?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)
+    '''
+
+    match = re.match(pattern, line, re.VERBOSE)
+    if match:
+        raw_names = match.group(1)
+        names = [name.strip() for name in raw_names.split(',')]
+        for name in names:
+            context.macro_table.erase(name)
+
+    lines.pop(line_index)
+    return line_index
 
 def ifpp(lines: List[str], line_index: int) -> int:
+    pass
+
+def elifpp(lines: List[str], line_index: int) -> int:
+    pass
+
+def elsepp(lines: List[str], line_index: int) -> int:
     pass
 
 

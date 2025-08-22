@@ -147,7 +147,19 @@ class MacrosTable:
             self.table.append(Macros(name))
 
     def append(self, macros: Macros) -> None:
+        for line in self.table:
+            if line.name == macros.name:
+                macros.body = line.body
+                return
         self.table.append(macros)
+
+    def erase(self, name: str) -> None:
+        i = 0
+        for line in self.table:
+            if line.name == name:
+                self.pop(i)
+            else:
+                i += 1
 
     def pop(self, index: int) -> None:
         self.table.pop(index)

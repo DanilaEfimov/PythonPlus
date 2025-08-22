@@ -3,6 +3,9 @@ import io
 import tokenize
 
 
+def search_condition_term(source: list[str], line_from: int) -> int:
+    pass
+
 def replace_extension(filename: str, new_suffix: str) -> str:
     path = pathlib.Path(filename)
     if not new_suffix.startswith('.'):
