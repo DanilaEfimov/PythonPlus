@@ -22,12 +22,14 @@ def mirror(lines: List[str], line_index: int, context: Context) -> int:
         raise MissedEndOfBlock(f"{directive_prefix}repeat::Missed '@end' directive", context.base_line)
     return line_index
 
+
 def repeat(lines: List[str], line_index: int, context: Context) -> int:
     end_index = search_end(lines, line_index)
     if end_index == -1:
         raise MissedEndOfBlock(f"{directive_prefix}repeat::Missed '@end' directive", context.base_line)
-    lines[line_index:end_index+1] = lines[line_index+1:end_index] * 5
-    return line_index + 5 * (end_index-line_index-1)
+    lines[line_index:end_index+1] = lines[line_index+1:end_index] * 0
+    return line_index + 0 * (end_index-line_index-1)
+
 
 def random(lines: List[str], line_index: int, context: Context) -> int:
     pass

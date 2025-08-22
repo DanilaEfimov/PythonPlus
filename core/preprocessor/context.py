@@ -4,6 +4,9 @@ from enum import Enum, auto
 
 class State(Enum):
     INIT = auto()
+    PREPROCESSING = auto()
+    FINISH = auto()
+    EXPANDING_MACROS = auto()
     READING_FILE = auto()
     WAITING_END_OF_BLOCK = auto()
 

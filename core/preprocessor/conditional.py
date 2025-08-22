@@ -49,8 +49,7 @@ def define(lines: List[str], line_index: int, context: Context) -> int:
         macros = ParamMacros(name)
         macros.params = macros.get_values(line)
 
-        prefix_pattern = rf'{re.escape(directive_prefix)}define\s+{re.escape(name)}\s*\([^)]*\)'
-        body = re.sub(prefix_pattern, '', line, count=1).strip()
+        body = ''.join(lines[line_index+1:end_index])
 
         macros.set_body(body)
         context.macro_table.append(macros)

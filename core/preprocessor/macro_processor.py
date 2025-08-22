@@ -2,9 +2,9 @@ import io
 import re
 import tokenize
 
-from core.preprocessor.errors import ArgumentMismatchError, MacrosSyntaxError
-from errors import DirectiveSyntaxError
+from errors import DirectiveSyntaxError, ArgumentMismatchError, MacrosSyntaxError, LineSyntaxWarning
 from handlers import directive_prefix
+from utils import remove_empty_lines, remove_comments
 
 class Macros:
 
@@ -42,19 +42,25 @@ class Macros:
 
     def expand(self, line: str) -> str:
         new_tokens = []
-        for token in tokenize.tokenize(io.BytesIO(line.encode()).readline):
-            if token.type == tokenize.NAME and token.string.strip() == self.name:
-                token = tokenize.TokenInfo(
-                    type=token.type,
-                    string=self.body,
-                    start=token.start,
-                    end=token.end,
-                    line=token.line
-                )
-            new_tokens.append(token)
+        try:
+            for token in tokenize.tokenize(io.BytesIO(line.encode()).readline):
+                if token.type == tokenize.NAME and token.string.strip() == self.name:
+                    token = tokenize.TokenInfo(
+                        type=token.type,
+                        string=self.body,
+                        start=token.start,
+                        end=token.end,
+                        line=token.line
+                    )
+                new_tokens.append(token)
+        except tokenize.TokenError as e:
+            warning = LineSyntaxWarning(e.__str__())
+            print(warning.what())
+            return line
         result = tokenize.untokenize(new_tokens).decode('utf-8')
         return result
 
+#TODO: recursively params parsing
 class ParamMacros(Macros):
 
     def __init__(self,
@@ -86,13 +92,13 @@ class ParamMacros(Macros):
             return name
         raise DirectiveSyntaxError(f"Invalid parameter macros syntax:\n{line}")
 
-    def get_values(self, line: str) -> list[str]:
+    def get_values(self, line: str) -> list[Macros]:
         pattern = rf'{re.escape(directive_prefix)}define\s+{re.escape(self.name)}\s*\((?P<args>[^()]*)\)'
         match = re.match(pattern, line)
         if not match:
             raise MacrosSyntaxError(f"Invalid macro call: {line}")
         args_str = match.group("args")
-        args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+        args = [Macros(arg.strip()) for arg in args_str.split(",") if arg.strip()]
         return args
 
     def set_params(self, values: list[str]) -> None:
@@ -104,15 +110,29 @@ class ParamMacros(Macros):
             self.params[i].set_body(values[i])
 
     def expand(self, line: str) -> str:
+        import regex
+
         pattern = rf'''
             \b{re.escape(self.name)}\b
             \s*
-            \((?P<args>[^()]*?)\)
-            '''
-        match = re.search(pattern, line, re.VERBOSE)
-        new_tokens = []
-        for token in tokenize.tokenize(io.BytesIO(line.encode()).readline):
-            pass
+            \(
+                (?P<args>
+                    (?:[^()]+|(?R))*
+                )
+            \)
+        '''
+
+        def repl(match):
+            args_str = match.group("args")
+            args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+            self.set_params(args)
+            expanded_body = self.body
+            for param in self.params:
+                expanded_body = param.expand(expanded_body)
+            return expanded_body
+
+        return regex.sub(pattern, repl, line, flags=re.VERBOSE)
+
 
 """
 Class for preprocessing context. Contains and managing
@@ -138,15 +158,26 @@ class MacrosTable:
         return line
 
 
-def expand_macros(lines: list[str], table: MacrosTable) -> int:
+def expand_macros(lines: list[str], table: MacrosTable) -> bool:
     """
     essential function of macro processor
     :param lines: source code
     :param table: table of defined macros
     :return: exit code of preprocessing
     """
+
+    expanded = False
     for i, line in enumerate(lines):
         if line.strip():
+            check = line
             lines[i] = table.expand(line)
-    return 0
+            if check != lines[i]:
+                expanded = True
+
+    cleaned = remove_comments(lines)
+    cleaned = remove_empty_lines(cleaned)
+
+    lines[:] = cleaned
+
+    return expanded
 

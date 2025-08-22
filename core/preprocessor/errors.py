@@ -238,5 +238,12 @@ class MacrosSyntaxError(MacrosError):
                  line: int | None = None):
         super().__init__(message, line)
 
+class LineSyntaxWarning(PreprocessorWarning):
+
+    # It means tokenize.TokenError (invalid Python syntax etc.)
+    def __init__(self,
+                 message: str):
+        super().__init__(message)
+
 class RedefinitionWarning(PreprocessorWarning):
     pass

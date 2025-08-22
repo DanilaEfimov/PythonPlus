@@ -1,0 +1,65 @@
+
+@define END @end
+
+@define LOG(str)
+print(str)
+@define END_DEEPER @end
+@define INVISIBLE @invisible
+@end
+
+@define MACRO_FIRST
+@define MACRO_SECOND
+LOG("MACRO_SECOND was defined")
+@end
+
+MACRO_FIRST
+END
+
+@define DOUBLE(x)
+((x) * 2)
+@end
+
+@define SAY_HELLO(name)
+print(f"Hello, {name}!")
+@end
+
+@define REPEAT_LINE(line, times)
+for _ in range(times):
+    print(line)
+@end
+
+@define MATH_OP(a, b, op)
+print("Result:", (a op b))
+@end
+
+@define FUNC_TEMPLATE(funcname, param)
+def funcname(param):
+    print("Function", funcname, "called with", param)
+@end
+
+@define END_DEEP_TWO END
+
+MACRO_SECOND
+# here located secret hints vvv
+INVISIBLE
+TOP SECRET:
+"""
+The artifact is hidden beneath the old library.
+Coordinates encoded in the poem's third stanza.
+Activate the protocol by invoking `Δ-Sequence` at midnight.
+Trust no one. Especially not the owl.
+"""
+END_DEEPER
+
+SAY_HELLO("Agent 47")
+print("Double 5:", DOUBLE(5))
+
+REPEAT_LINE("Scanning area...", 3)
+
+# Простой математический макрос (например, с +)
+MATH_OP(10, 20, +)
+
+# Генерация шаблонной функции
+FUNC_TEMPLATE(process_data, x)
+
+process_data("payload")
